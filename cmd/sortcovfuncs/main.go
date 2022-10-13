@@ -9,7 +9,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"sort"
 	"strings"
@@ -74,7 +73,7 @@ func usage(msg string) {
 	if len(msg) > 0 {
 		fmt.Fprintf(os.Stderr, "error: %s\n", msg)
 	}
-	fmt.Fprintf(os.Stderr, "usage: sortcovfuncs [flags] -i=<input function report>\n")
+	fmt.Fprintf(os.Stderr, "usage: sortcovfuncs [flags] -i=<input function report> -o<output file>\n")
 	flag.PrintDefaults()
 	os.Exit(2)
 }
@@ -91,13 +90,13 @@ func main() {
 	var err error
 	closer := func(f *os.File, name string) {
 		if err := f.Close(); err != nil {
-			log.Fatalf("closing %s: %v", name, err)
+			fatal("closing %s: %v", name, err)
 		}
 	}
 	if *inflag != "" {
 		infile, err = os.Open(*inflag)
 		if err != nil {
-			log.Fatal(err)
+			fatal("opening %s: %v", *inflag, err)
 		}
 		defer closer(infile, *inflag)
 	}
@@ -105,7 +104,7 @@ func main() {
 	if *outflag != "" {
 		outfile, err = os.OpenFile(*outflag, os.O_WRONLY|os.O_CREATE, 0666)
 		if err != nil {
-			log.Fatal(err)
+			fatal("opening %s: %v", *outflag, err)
 		}
 		defer closer(outfile, *outflag)
 	}
