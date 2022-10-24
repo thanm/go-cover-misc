@@ -43,7 +43,7 @@ bytes/buffer.go:404: UnreadByte	0.0%
 }
 
 func trygorun(t *testing.T) {
-	cmd := exec.Command("go", "run", "testdata/himom.go")
+	cmd := exec.Command("go", "run", "testdata/hello.go")
 	_, cerr := cmd.CombinedOutput()
 	if cerr != nil {
 		t.Skipf("go run himom failed, skipping")
@@ -93,4 +93,5 @@ func TestWithBuild(t *testing.T) {
 	os.Args[len(os.Args)-1] = sout
 	os.Args = append(os.Args, "-stripline")
 	main()
+	t.Logf("finished main\n")
 }

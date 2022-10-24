@@ -15,13 +15,21 @@ import (
 )
 
 var revflag = flag.Bool("r", false, "Reverse sense of sorting")
-var striplineflag = flag.Bool("stripline", false, "Reverse sense of sorting")
+var striplineflag = flag.Bool("stripline", false, "Strip fn line numbers")
 var inflag = flag.String("i", "", "Input file (omit to read from stdin)")
 var outflag = flag.String("o", "", "Output file (omit to write to stdout)")
 
 type kline struct {
 	perc float32
 	line string
+}
+
+func dostripline(line string) string {
+	fields := strings.Split(line, ":")
+	if len(fields) == 3 {
+		line = fields[0] + fields[2]
+	}
+	return line
 }
 
 func read(r io.Reader) ([]kline, error) {
@@ -39,10 +47,7 @@ func read(r io.Reader) ([]kline, error) {
 			return nil, fmt.Errorf("malformed perc %q: %v", fields[2], err)
 		}
 		if *striplineflag {
-			fields := strings.Split(line, ":")
-			if len(fields) == 3 {
-				line = fields[0] + fields[2]
-			}
+			line = dostripline(line)
 		}
 		k := kline{
 			perc: perc,

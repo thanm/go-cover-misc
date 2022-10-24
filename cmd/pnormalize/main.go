@@ -18,6 +18,7 @@ import (
 var revflag = flag.Bool("r", false, "Reverse sense of sorting")
 var inflag = flag.String("i", "", "Input file (omit to read from stdin)")
 var outflag = flag.String("o", "", "Output file (omit to write to stdout)")
+var expflag = flag.Bool("experiment", false, "Experimental!")
 
 type kline struct {
 	file string
@@ -41,11 +42,25 @@ func read(r io.Reader) ([]kline, string, error) {
 		}
 		fields2 := strings.Split(fields[1], ".")
 		if len(fields2) != 3 {
+			if false {
+				fmt.Fprintf(os.Stderr, "should never happen\n")
+			}
 			return nil, mode, fmt.Errorf("malformed line, bad lines clause: %s", line)
 		}
 		sl, err := strconv.Atoi(fields2[0])
 		if err != nil {
 			return nil, mode, fmt.Errorf("malformed starting line number: %s", line)
+		}
+		if *expflag {
+			var stl, enl, stc, enc int
+			nv, err := fmt.Sscanf(fields[1], "%d.%d,%d.%d", &stl, &stc,
+				&enl, &enc)
+			if err == nil && nv == 4 {
+				if stl != enl {
+					continue
+				}
+			}
+			fmt.Fprintf(os.Stderr, "nv=%d err=%v stl=%d stc=%d enl=%d enc=%d\n", nv, err, stl, stc, enl, enc)
 		}
 		k := kline{
 			file: fields[0],
