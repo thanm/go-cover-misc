@@ -97,7 +97,7 @@ func usage(msg string) {
 	if len(msg) > 0 {
 		fmt.Fprintf(os.Stderr, "error: %s\n", msg)
 	}
-	fmt.Fprintf(os.Stderr, "usage: sortcovfuncs [flags] -i=<input function report> -o<output file>\n")
+	fmt.Fprintf(os.Stderr, "usage: pnormalize [flags] -i=<input function report> -o<output file>\n")
 	flag.PrintDefaults()
 	os.Exit(2)
 }
