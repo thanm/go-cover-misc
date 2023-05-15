@@ -11,23 +11,27 @@ import (
 	"io"
 	"os"
 	"sort"
-	"strconv"
 	"strings"
 )
 
 var revflag = flag.Bool("r", false, "Reverse sense of sorting")
 var inflag = flag.String("i", "", "Input file (omit to read from stdin)")
 var outflag = flag.String("o", "", "Output file (omit to write to stdout)")
-var expflag = flag.Bool("experiment", false, "Experimental!")
+var mergeflag = flag.Bool("merge", false, "merge together lines with same source position")
 
 type kline struct {
-	file string
-	st   uint32
-	line string
+	file  string
+	stl   int
+	enl   int
+	stc   int
+	enc   int
+	stmts int
+	count int
 }
 
-func read(r io.Reader) ([]kline, string, error) {
+func read(r io.Reader, merge bool) ([]kline, string, error) {
 	mode := ""
+	m := make(map[kline]int)
 	klines := []kline{}
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
@@ -40,34 +44,35 @@ func read(r io.Reader) ([]kline, string, error) {
 			mode = line
 			continue
 		}
-		fields2 := strings.Split(fields[1], ".")
-		if len(fields2) != 3 {
-			if false {
-				fmt.Fprintf(os.Stderr, "should never happen\n")
-			}
-			return nil, mode, fmt.Errorf("malformed line, bad lines clause: %s", line)
-		}
-		sl, err := strconv.Atoi(fields2[0])
+		var stl, enl, stc, enc, stmts, count int
+		nv, err := fmt.Sscanf(fields[1], "%d.%d,%d.%d %d %d", &stl, &stc, &enl, &enc, &stmts, &count)
 		if err != nil {
-			return nil, mode, fmt.Errorf("malformed starting line number: %s", line)
+			return nil, mode, fmt.Errorf("malformed line (scanf err %v): %s", err, line)
 		}
-		if *expflag {
-			var stl, enl, stc, enc int
-			nv, err := fmt.Sscanf(fields[1], "%d.%d,%d.%d", &stl, &stc,
-				&enl, &enc)
-			if err == nil && nv == 4 {
-				if stl != enl {
-					continue
-				}
-			}
-			fmt.Fprintf(os.Stderr, "nv=%d err=%v stl=%d stc=%d enl=%d enc=%d\n", nv, err, stl, stc, enl, enc)
+		if nv != 6 {
+			return nil, mode, fmt.Errorf("malformed line (scanf %d vals): %s", nv, line)
 		}
 		k := kline{
-			file: fields[0],
-			st:   uint32(sl),
-			line: line,
+			file:  fields[0],
+			stl:   stl,
+			enl:   enl,
+			stc:   stc,
+			enc:   enc,
+			stmts: stmts,
 		}
-		klines = append(klines, k)
+		if merge {
+			v := m[k]
+			m[k] = v + count
+		} else {
+			k.count = count
+			klines = append(klines, k)
+		}
+	}
+	if merge {
+		for k, v := range m {
+			k.count = v
+			klines = append(klines, k)
+		}
 	}
 	return klines, mode, nil
 }
@@ -75,21 +80,32 @@ func read(r io.Reader) ([]kline, string, error) {
 func write(w io.Writer, mode string, klines []kline) {
 	io.WriteString(w, mode)
 	io.WriteString(w, "\n")
-	sortfn := func(i, j int) bool {
+	lt := func(i, j int) bool {
 		if klines[i].file != klines[j].file {
 			return klines[i].file < klines[j].file
 		}
-		return klines[i].st < klines[j].st
-	}
-	if *revflag {
-		sortfn = func(i, j int) bool {
-			return sortfn(j, i)
+		if klines[i].stl != klines[j].stl {
+			return klines[i].stl < klines[j].stl
 		}
+		if klines[i].stc != klines[j].stc {
+			return klines[i].stc < klines[j].stc
+		}
+		if klines[i].enl != klines[j].enl {
+			return klines[i].enl < klines[j].enl
+		}
+		return klines[i].enc < klines[j].enc
+	}
+	sortfn := func(i, j int) bool {
+		if *revflag {
+			i, j = j, i
+		}
+		v := lt(i, j)
+		return v
 	}
 	sort.SliceStable(klines, sortfn)
-	for i := range klines {
-		io.WriteString(w, klines[i].line)
-		io.WriteString(w, "\n")
+	for _, k := range klines {
+		fmt.Fprintf(w, "%s:%d.%d,%d.%d %d %d\n",
+			k.file, k.stl, k.stc, k.enl, k.enc, k.stmts, k.count)
 	}
 }
 
@@ -132,7 +148,7 @@ func main() {
 		}
 		defer closer(outfile, *outflag)
 	}
-	if klines, mode, err := read(infile); err != nil {
+	if klines, mode, err := read(infile, *mergeflag); err != nil {
 		fatal("error reading %s: %v", *inflag, err)
 	} else {
 		write(outfile, mode, klines)
